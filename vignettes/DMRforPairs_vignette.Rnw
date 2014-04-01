@@ -1,0 +1,222 @@
+\documentclass{article}
+% \VignetteIndexEntry{DMRforPairs_vignette}
+\setlength{\abovecaptionskip}{0pt plus 3pt minus 2pt} % Chosen fairly arbitrarily
+\begin{document}
+\title{DMRforPairs vignette}
+\author{Martin A. Rijlaarsdam}
+\maketitle
+\SweaveOpts{concordance=TRUE}
+\section{Overview}
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[scale=1]{FunctionSchedule.png}
+\caption{Flowchart of the DMRforPairs algorithm. The user progresses vertically through the pipeline while the algorithm uses the subsequent functions as indicated by horizontal connectors. The tuning function for the DMRforPairs parameters (min\_n and min\_distance) is not depicted, but can be used to explore the number of regions identified/probes included for various pairs of settings.}
+\end{center}
+\end{figure}
+This is a demo illustrating the usage of DMRforPairs (Figure 1). DMRforPairs is designed to identify Differentially Methylated Regions between unique samples using array based methylation profiles. Regions are identified as genomic ranges with sufficient probes located in close proximity to each other and which are optionally annotated to the same functional class (see reference manual, merge\_classes() function). Differential methylation is evaluated by comparing the methylation values within each region between individual samples and (if the difference is sufficiently large), testing this difference formally for statistical significance.\\
+\\
+The following remarks apply to the vignette:
+\begin{enumerate}
+\item{the "annotate.significant" and "annotate" parameters have been set to FALSE to facilitate the speed of building the package/vignette and to allow running the vignette on computers that are not connected to the internet. The power of DMRforPairs is however greatly enhanced by the Gviz based visualizations that include annotation information from Ensembl. Therefore, it is advised to change these parameters to TRUE if internet is avaliable. We recommend annotate.relevant to be set to FALSE al all times unless very small sections of the genome are analyzed (see documentation)}
+\item{the vignette requires writing permissions in the working directory.}
+\item{parallelization has been disabled in all examples as well as in this vignette. This is done to provide polite code for people sharing compute cycles.}
+\end{enumerate}
+\section{Setting up the data and settings}
+\subsection{The Data}
+Load the data. This dataset provides the average methylation values on chromosome 7 of two commercially available EBV transfected lymphoblastoid cell lines from healthy individuals (NA17105 (African American male) and NA17018 (Chinese female)). The dataset also contains this data for the breast cancer cell line MCF7 (Soule et al. 1973) and the HPV negative squamous-cell vulva carcinoma cell line A431 (Giard et al. 1973 and Hietanen et al. 1995). For a full description of the dataset (+references) and its format, please see the reference manual.\\
+<<>>=
+library(DMRforPairs)
+data(DMRforPairs_data)
+@
+Columns 1 - 6 of the data indicate information about individual probes (n=29,974) and their annotation. Columns 7 - 10 indicate M-values for all samples and columns 11 - 14 represent the associated beta values.\\
+\newpage
+<<>>=
+head(CL.methy,2)
+@
+\subsection{The Settings}
+First, a number of possible settings for the min\_distance (the maximal distance accepted between probes in a region) and min\_n (the minimal number of probes in a region) are evaluated.
+<<>>=
+parameters=expand.grid(min_distance = c(200,300), min_n = c(4,5))
+recode=1
+results.parameters =  tune_parameters(parameters,
+ classes_gene=CL.methy$class.gene.related, 
+ classes_island=CL.methy$class.island.related, 
+ targetID=CL.methy$targetID, 
+ chr=CL.methy$chromosome, 
+ position=CL.methy$position, 
+ m.v=CL.methy[,c(7:8)], 
+ beta.v=CL.methy[,c(11:12)],
+ recode=recode,
+ gs=CL.methy$gene.symbol,
+ do.parallel=0)
+results.parameters
+@
+In the rest of this vignette, the default setting of minimally 4 probes per region is used. These have to be in < 200 bp distance of each other. The threshold for a relevant median difference in M value between the samples is set to 1.4. Benjamini Hochberg corrected p-values <0.05 are deemed significant. The parameter experiment sets name of the experiment which is reflected in the name of the folder with results that will be created in the working directory.\\
+<<>>=
+min_n=4
+d=200
+dM=1.4
+pval_th=0.05
+experiment="results_DMRforPairs_vignette"
+method="fdr"
+clr=c("red","blue","green")
+@
+\section{Run DMRforPairs}
+The algorithm is most conveniently executed by calling the wrapper for the analysis part (DMRforPairs()) which returns the results of all the separate steps. DMRforPairs runs automatically, showing regular status updates. Analysis can take quite long, especially on a genome wide scale (several hours). The demo data should generally finish within a few minutes. The wrapper subsequently performs:\\
+\begin{enumerate}
+\item Recoding of the probe classes according to a custom or build in scheme.
+\item Identification of regions with sufficient probe density (i.e. number of probes and proximity) over all genomic regions at which probes are annotated in the dataset .
+\item Calculation of relevant statistics (e.g. median difference in M and beta values) and performing of formal tests to see if the difference is significant.
+\end{enumerate}
+These steps are extensively described in the reference manual.
+<<>>=
+output=DMRforPairs(
+ classes_gene=CL.methy$class.gene.related,
+ classes_island=CL.methy$class.island.related,
+ targetID=CL.methy$targetID, 
+ chr=CL.methy$chromosome, 
+ position=CL.methy$position,
+ m.v=CL.methy[,c(8:10)], 
+ beta.v=CL.methy[,c(12:14)], 
+ min_n=min_n,min_distance=d,min_dM=dM,
+ recode=recode,
+ sep=";",
+ method=method,
+ debug.v=FALSE,gs=CL.methy$gene.symbol,
+ do.parallel=0)
+@
+\newpage
+\subsection{Examining the primary output of DMRforPairs}
+\subsubsection{Recode probe classes (merge\_classes())}
+Orginal probe classes...
+<<>>=
+head(output$classes$pclass,3) 
+@
+Recoded probe classes...
+<<>>=
+head(output$classes$pclass_recoded,3) 
+@
+Row numbers of probes without a recoded class...
+<<>>=
+head(output$classes$no.pclass,10) 
+@
+Classes used for recoding...
+<<>>=
+output$classes$u_pclass
+@
+Merge classes returns a reduced set of probe data (annotation, M and beta values) including only probes associated with at least one recoded class. In case of recode=2 this implicates all probes in the dataset. This reduced set of probes is designated "valid" in the remainder of this vignette and in the reference manual.
+\subsubsection{Identify probe-dense regions (regionfinder())}
+Potential regions of interest...
+<<>>=
+head(output$regions$boundaries,4)
+@
+Probes with associated class after recoding (valid probes)...
+<<>>=
+head(output$regions$valid.probes,2) 
+@
+Associated m and beta values for all samples for each valid probe...
+<<>>=
+head(output$regions$valid.m,2) 
+head(output$regions$valid.beta,2) 
+@
+Region to probe map: matrix of valid probes (rows) and recoded probe classes (columns) with either NA if not included in any potential region of interest or the ID of the region the probe is assigned to. By definition each probe can only be associated to one region per class. Region IDs are specific to a dataset and a set of DMRforPairs parameters. Region IDs are therefore not interchangable between datasets/experiments and primarily serve as identifiers during exploration of the dataset.
+<<>>=
+head(output$regions$perprobe,4) 
+@
+\newpage
+\subsubsection{Calculation of relevant statistics and testing (testregion())}
+This output is structured like output\$regions\$boundaries but is supplemented with descriptive statistics and formal test results per region.\\
+<<>>=
+head(output$tested,1)
+@
+\section{Export and visualization}
+The export\_data() function performs a complete export of all results to TSV, pdf and png files for all (relevant) regions. These overviews are generated in increasing detail for:
+\begin{enumerate}
+\item{all regions}
+\item{regions with a relevant difference (> dM) and}
+\item{regions with a significant difference.}
+\end{enumerate}
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[scale=0.8]{OutputTable.png}
+\caption{Example of the HTML output of DMRforPairs}
+\end{center}
+\end{figure}
+HTML tables are used to access the results and describe the analysis (Figure 2). Thumbnails of the methation pattern of a region are presented in the tables (2 and 3) as well as general statistics. Links to detailed statistics (tsv) and (pairwise) visualizations (pdf) are provided. Regions with a relevant difference can be looked up in the Ensembl database resulting in annotated figures of the methylation pattern. Also, direct links to the regions in the Ensembl and UCSC genome browsers are presented.By default, DMRforPairs creates a folder (experiment.name) within the current working directory for the output (export\_data() function). This is done because a complete export generates a large number of files. Visualization and export can take quite long depending on the status of biomart (Ensembl).
+<<>>=
+tested_inclannot=export_data(
+ tested=output$tested,
+ regions=output$regions,
+ th=pval_th,min_n=min_n,min_dM=dM,min_distance=d,
+ margin=10000,clr=clr,method=method,experiment.name=experiment,
+ annotate.relevant=FALSE,annotate.significant=FALSE,
+ FigsNotRelevant=FALSE,debug=FALSE)
+@
+Please see the "results\_DMRforPairs\_vignette" folder in your working directory for the output of the vignette.\\
+PIK3CG was one of the genes strongly differentially methylated in 1 of the samples relative to the other two. By clicking on the PDF link, the output region can be further studied (Figure 3). Additional statistics are accessible via the STATS link in the HTML table (significant.html).\\
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[scale=1]{PIK3CG.png}
+\includegraphics[scale=1]{PIK3CG_annotated.png}
+\caption{Differentially methylated region around the TSS of PIK3CG.}
+\end{center}
+\end{figure}
+\newpage
+\subsection{Examining the data further}
+There are also several functions to further explore the data based on the findings after export. These will be discussed in this section. For example, region 16 was highly relevant (median delta M=13.77). However, because of limited statistical power (n=4) the region did not survive correction for multiple testing. We might want to inquire this region further using the plot\_annotate\_region() function. By default relevant, but non-significant regions like 16 are not annotated. If we set annotate to TRUE in the example below we can appreciate that even though the number of probes is low (technical bias), the sudden consistent difference between MCF7 occurs right around the transcription start site of BMPER and the surrounding probes do not show this differential pattern (Figure 4). The plot\_annotate\_region() function also reports back the complete set of statistics and pairwise plots for the requested region.\\
+\newpage
+<<>>=
+plot_annotate_region(output$tested,
+                     output$regions,
+                     margin=10000,
+                     regionID=16,
+                     clr=clr,
+                     annotate=FALSE,
+                     scores=TRUE,
+                     path=experiment)
+@
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[scale=1]{16.png}
+\includegraphics[scale=1]{16_annotated.png}
+\caption{Differentially methylated region 16 - relevant, but not significant.}
+\end{center}
+\end{figure}
+\newpage
+The DMRforPairs script also contains a wrapper to visualize the methylation pattern in and around a specific gene (gene symbol) as long as the gene symbol is annotated in the Illumina manifest. The plot\_annotate\_gene() function also reports back the complete set of statistics and pairwise plots for that gene. We will follow up on BMPER here (Figure 5).\\
+<<>>=
+plot_annotate_gene(gs="BMPER",
+                   regions=output$regions,
+                   margin=10000,
+                   ID="BMPER",
+                   clr=clr,
+                   annotate=FALSE,
+                   path=experiment)
+@
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[scale=1]{BMPER.png}
+\includegraphics[scale=1]{BMPER_annotated.png}
+\caption{Methylation througout the BMPER gene.}
+\end{center}
+\end{figure}
+\newpage
+DMRforPairs can also visualize custom genomic regions. The example below basically generates a zoomed in version of of the whole BMPER gene and shows that only the promoter region (before TSS) is differentially methylated (Figure 6). This overlaps with the region selected by DMRforPairs (region 16). The plot\_annotate\_custom\_region() function also reports back the complete set of statistics for the requested custom genomic region.
+<<>>=
+plot_annotate_custom_region(chr=7,
+                            st=33943000,
+                            ed=33945000, 
+                            output$regions,
+                            margin=500,
+                            ID="BMPER_TSS",
+                            clr=clr,annotate=FALSE,
+                            path=experiment)
+@
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[scale=1]{BMPER_TSS.png}
+\includegraphics[scale=1]{BMPER_TSS_annotated.png}
+\caption{Methylation around the TSS of BMPER.}
+\end{center}
+\end{figure}
+\end{document}

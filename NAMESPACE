@@ -1,0 +1,2 @@
+export(DMRforPairs, merge_classes, regionfinder, testregion, calc_stats, export_data, plot_annotate_region, plot_annotate_gene, plot_annotate_custom_region, plot_annotate_probes,tune_parameters)
+import(parallel,GenomicRanges,Gviz,R2HTML)
