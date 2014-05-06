@@ -1,0 +1,9 @@
+citEntry(entry = "Article",
+         "author" = "Martin A Rijlaarsdam, Yvonne G van der Zwan, Lambert CJ Dorssers, Leendert HJ Looijenga",
+         "title" = "DMRforPairs: identifying Differentially Methylated Regions between unique samples using array based methylation profiles.",
+         journal = "BMC Bioinformatics",
+         year = "2014",
+         publisher = "BioMed Central",
+         address = "London, UK",
+         textVersion = "Rijlaarsdam MA, vd Zwan YG, Dorssers LC, Looijenga LH. DMRforPairs: identifying Differentially Methylated Regions between unique samples using array based methylation profiles. BMC Bioinformatics. 2014(in press)."
+) 

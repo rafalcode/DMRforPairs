@@ -1,2 +1,6 @@
+DMRforPairs 1.1.1 (2014-05-06)
+---------------------------
+	* The publication describing DMRforPairs was accepted in BMC Bioinformatics. The citation info of the package has been updated accordingly. Please use this updated reference when citing DMRforPairs: Rijlaarsdam MA, Zwan YGvd, Dorssers LC, Looijenga LH. DMRforPairs: identifying Differentially Methylated Regions between unique samples using array based methylation profiles. BMC Bioinformatics. 2014(in press).
+
 
 
