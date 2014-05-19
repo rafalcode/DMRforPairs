@@ -10,8 +10,8 @@ Authors@R: c(person("Martin", "Rijlaarsdam", role = c("aut", "cre"),
 Depends: R (>= 2.15.2), Gviz (>= 1.2.1), R2HTML (>= 2.2.1),
         GenomicRanges (>= 1.10.7), parallel
 Description: DMRforPairs (formerly DMR2+) allows researchers to compare 
-		n>=2 unique samples with regard to their methylation profile. 
-		The (pairwise) comparison of n unique single samples distinguishes
+        n>=2 unique samples with regard to their methylation profile. 
+        The (pairwise) comparison of n unique single samples distinguishes
         DMRforPairs from other existing pipelines as these often
         compare groups of samples in either single CpG locus or region
         based analysis. DMRforPairs defines regions of interest as
