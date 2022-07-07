@@ -1,17 +1,15 @@
 DMRforPairs <- function(classes_gene, classes_island, targetID, chr, 
     position, m.v, beta.v, min_n = 4, min_distance = 200, min_dM = 1.4, 
-    recode = 1, sep = ";", method = "fdr", debug.v = FALSE, gs, do.parallel = 0) {
-    
+    recode = 1, sep = ";", method = "fdr", debug.v = FALSE, gs, do.parallel = 0)
+{
     # merge gene/island classes
-    classes <- merge_classes(classes_gene, classes_island, recode, 
-        sep)
-    rownames(classes$pclass) = rownames(m.v)
-    rownames(classes$pclass_recoded) = rownames(m.v)
+    classes <- merge_classes(classes_gene, classes_island, recode, sep)
+    rownames(classes$pclass) <- rownames(m.v)
+    rownames(classes$pclass_recoded) <- rownames(m.v)
     
     # find potential regions of interest
     regions <- regionfinder(targetID, chr, position, classes$pclass_recoded, 
-        classes$no.pclass, classes$u_pclass, d = min_distance, m.v, 
-        beta.v, n_min = min_n, debug = debug.v, gs)
+        classes$no.pclass, classes$u_pclass, d = min_distance, m.v, beta.v, n_min = min_n, debug = debug.v, gs)
     
     # identify and test regions with differential methylation.
     message("Calculating statistics and testing differences between samples per region. Please be patient.")
@@ -22,8 +20,8 @@ DMRforPairs <- function(classes_gene, classes_island, targetID, chr,
     n <- dim(m)[2]
     dMth <- min_dM
     
-    n = dim(regions$valid.m)[2]
-    ID = data.frame(regions$boundaries$regionID)
+    n <- dim(regions$valid.m)[2]
+    ID <- data.frame(regions$boundaries$regionID)
     if (do.parallel == 0) {
         tested = apply(ID, 1, function(ID) testregion(ID, probes = probes, 
             m = m, b = b, n = n, dMth = dMth, do.format = FALSE))  #calculate statistics for each region
@@ -35,33 +33,29 @@ DMRforPairs <- function(classes_gene, classes_island, targetID, chr,
         cl <- makeCluster(getOption("cl.cores", do.parallel))
         clusterExport(cl, c("probes", "m", "b", "dMth", "testregion", 
             "calc_stats", "n"), envir = environment())
-        tested = parApply(cl, ID, 1, function(ID) testregion(ID, 
+        tested <- parApply(cl, ID, 1, function(ID) testregion(ID, 
             probes = probes, m = m, b = b, n = n, dMth = dMth, do.format = FALSE))  #calculate statistics for each region
         stopCluster(cl)
     }
     
-    tested = t(tested)
+    tested <- t(tested)
     i = combn(n, 2)  #testregion is called using apply without requesting proper formatting to minimize compute time. Formatting is done once on the complete output in the following lines.
     cn1 = paste("beta.median", colnames(b), sep = ".")
     cn2 = paste("m.median", colnames(m), sep = ".")
-    cn3 = paste("median.delta.beta", colnames(m)[i[1, ]], "minus", 
-        colnames(m)[i[2, ]], sep = ".")
-    cn4 = paste("median.delta.m", colnames(m)[i[1, ]], "minus", colnames(m)[i[2, 
-        ]], sep = ".")
-    cn5 = paste("pairwise.p", colnames(m)[i[1, ]], "vs", colnames(m)[i[2, 
-        ]], sep = ".")
-    colnames(tested) = c(cn1, cn2, cn3, cn4, cn5, "max.abs.median.delta", 
-        "p.value")
-    tested = as.data.frame(tested)
-    tested$p.value.adjusted = p.adjust(p = tested$p.value, method = method, 
+    cn3 = paste("median.delta.beta", colnames(m)[i[1, ]], "minus", colnames(m)[i[2, ]], sep = ".")
+    cn4 = paste("median.delta.m", colnames(m)[i[1, ]], "minus", colnames(m)[i[2, ]], sep = ".")
+    cn5 = paste("pairwise.p", colnames(m)[i[1, ]], "vs", colnames(m)[i[2, ]], sep = ".")
+    colnames(tested) = c(cn1, cn2, cn3, cn4, cn5, "max.abs.median.delta", "p.value")
+    tested <- as.data.frame(tested)
+    tested$p.value.adjusted <- p.adjust(p = tested$p.value, method = method, 
         n = length(which(!is.na(tested$p.value))))  #calc adjusted p-values based on the actual nr of tests performed.
-    tested = cbind(regions$boundaries, tested)  #combine methylation level statistics with positional info of the regions
+    tested <- cbind(regions$boundaries, tested)  #combine methylation level statistics with positional info of the regions
     
     return(list(classes = classes, regions = regions, tested = tested))
 }
 
-merge_classes <- function(refgene_class, island_class, recode = 1, 
-    sep = ";") {
+merge_classes <- function(refgene_class, island_class, recode = 1, sep = ";")
+{
     message("Recoding annotation classes...")
     probes.pclass <- paste(refgene_class, island_class, sep = ";")
     probes.pclass.merged = probes.pclass
@@ -115,7 +109,8 @@ merge_classes <- function(refgene_class, island_class, recode = 1,
 }
 
 regionfinder <- function(targetID, chr, position, pclass, r_excl, 
-    u_pclass, d = 200, m.v, beta.v, n_min = 4, debug = FALSE, gs) {
+    u_pclass, d = 200, m.v, beta.v, n_min = 4, debug = FALSE, gs) # regionfinder
+{
     gs = data.frame(gs)
     # exclude probes with no classification from m/beta/call/p-value
     # matrices
@@ -142,21 +137,17 @@ regionfinder <- function(targetID, chr, position, pclass, r_excl,
     regions2probes = matrix(NA, nrow = dim(probes[1]), ncol = n_pclass)
     regionID = 0
     
-    if (debug == TRUE) 
-        {
+    if (debug == TRUE) {
             n_chr = 1
-        }  #just for debug purposes, only run chr1
+    }  #just for debug purposes, only run chr1
     
     # for each chromosome... (since the regionfinding process is
-    # recursive, it was not passible to do this elegantly using
-    # apply)
+    # recursive, it was not passible to do this elegantly using # apply)
     for (curchr in 1:n_chr) {
         ptm <- proc.time()
-        message(paste("Regionfinder: processing chr", u_chr[curchr], 
-            " (", curchr, "/", n_chr, ")", sep = ""))
+        message(paste("Regionfinder: processing chr", u_chr[curchr], " (", curchr, "/", n_chr, ")", sep = ""))
         
-        cur_probes = probes[which(as.character(probes$chr) == as.character(u_chr[curchr])), 
-            ]  #select probes on current chromosome
+        cur_probes = probes[which(as.character(probes$chr) == as.character(u_chr[curchr])), ]  #select probes on current chromosome
         cur_probes = cur_probes[order(cur_probes[4]), ]  #order on position (asc)
         
         for (cur_pclass in 1:n_pclass) {
@@ -294,15 +285,16 @@ regionfinder <- function(targetID, chr, position, pclass, r_excl,
         gs = gs))
 }
 
-testregion <- function(x, probes, m, b, n, dMth, do.format = FALSE) {
+testregion <- function(x, probes, m, b, n, dMth, do.format = FALSE)
+{
     probe_rows = which(probes == x, arr.ind = TRUE)  #rows of probes in current regions
     probe_rows = probe_rows[, 1]
-    out = calc_stats(probe_rows = probe_rows, probes, m, b, n, dMth, 
-        do.format = do.format)
+    out = calc_stats(probe_rows = probe_rows, probes, m, b, n, dMth, do.format = do.format)
     out
 }
 
-calc_stats <- function(probe_rows, probes, m, b, n, dMth, do.format = FALSE) {
+calc_stats <- function(probe_rows, probes, m, b, n, dMth, do.format = FALSE)
+{
     tb = b[probe_rows, ]  #m and beta values in current region
     tm = m[probe_rows, ]
     np = dim(tb)[1]  #number of probes in current region
@@ -356,12 +348,14 @@ calc_stats <- function(probe_rows, probes, m, b, n, dMth, do.format = FALSE) {
     out
 }
 
-mod <- function(x, m) {
+mod <- function(x, m)
+{
     t1 <- floor(x/m)
     return(x - t1 * m)
 }
 
-matchsymbol <- function(l, str, sep = ";") {
+matchsymbol <- function(l, str, sep = ";")
+{
     # find complete matches of str in l, accepting that each row in l
     # has multiple entries separated by sep.
     l = as.character(l)
@@ -388,12 +382,11 @@ matchsymbol <- function(l, str, sep = ";") {
 
 tune_parameters <- function(parameters, classes_gene, classes_island, 
     targetID, chr, position, m.v, beta.v, recode = 1, sep = ";", 
-    gs, do.parallel = 0) {
-    message(paste("min_distance=", parameters[1], ", min_n=", parameters[2], 
-        sep = ""))
+    gs, do.parallel = 0)
+{
+    message(paste("min_distance=", parameters[1], ", min_n=", parameters[2], sep = ""))
     # merge gene/island classes
-    classes <- merge_classes(classes_gene, classes_island, recode = recode, 
-        sep = ";")
+    classes <- merge_classes(classes_gene, classes_island, recode = recode, sep = ";")
     
     message("Calculating the number of regions and associated probes for the requested set of parameters")
     if (do.parallel == FALSE) {
@@ -424,7 +417,8 @@ tune_parameters <- function(parameters, classes_gene, classes_island,
 }
 
 tune_parameters_calc <- function(parameters, targetID, classes, chr, 
-    position, m.v, beta.v, recode = 1, sep = ";", gs) {
+    position, m.v, beta.v, recode = 1, sep = ";", gs)
+{
     # find potential regions of interest
     regions <- regionfinder(targetID = targetID, chr = chr, position = position, 
         classes$pclass_recoded, classes$no.pclass, classes$u_pclass, 
@@ -443,14 +437,15 @@ tune_parameters_calc <- function(parameters, targetID, classes, chr,
     results[5] = length(which(rowSums(tmp) > 0))
     return(results)
 }
+
 export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE, 
     annotate.significant = TRUE, FigsNotRelevant = FALSE, min_n = 4, 
     min_dM = 1.4, min_distance = 200, margin = 10000, clr = NA, method = "fdr", 
-    experiment.name, debug = FALSE) {
+    experiment.name, debug = FALSE)
+{
     dir.create(file.path(getwd(), experiment.name))
     
-    dir.create(file.path(paste(getwd(), experiment.name, sep = "/"), 
-        "figures"))
+    dir.create(file.path(paste(getwd(), experiment.name, sep = "/"), "figures"))
     old.wd = getwd()
     
     setwd(file.path(getwd(), experiment.name))
@@ -460,13 +455,11 @@ export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE,
     # ENSEMBL
     linkEnsembl_pre = "<a href=\"http://www.ensembl.org/Homo_sapiens/Location/View?r="
     linkEnsembl_post = "\" target=\"_blank\">ENSEMBL</a>"
-    tested$LinkEnsembl = paste(linkEnsembl_pre, tested$chr, ":", 
-        tested$start_bp, "-", tested$end_bp, linkEnsembl_post, sep = "")
+    tested$LinkEnsembl = paste(linkEnsembl_pre, tested$chr, ":", tested$start_bp, "-", tested$end_bp, linkEnsembl_post, sep = "")
     
     linkUCSC_pre = "<a href=\"http://genome-euro.ucsc.edu/cgi-bin/hgTracks?position=chr"
     linkUCSC_post = "&hgsid=192199020&knownGene=pack&hgFind.matches=uc004dqr.3,\" target=\"_blank\">UCSC</a>"
-    tested$LinkUCSC = paste(linkUCSC_pre, tested$chr, ":", tested$start_bp, 
-        "-", tested$end_bp, linkUCSC_post, sep = "")
+    tested$LinkUCSC = paste(linkUCSC_pre, tested$chr, ":", tested$start_bp, "-", tested$end_bp, linkUCSC_post, sep = "")
     
     # export figures / pdfs and add annotation to tested
     tested$GeneSymbols_exact = "Not queried"
@@ -497,8 +490,7 @@ export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE,
     }
     
     # relevant, but not significant regions
-    r = tested[which(!is.na(tested$p.value.adjusted) & tested$p.value.adjusted > 
-        th), "regionID"]
+    r = tested[which(!is.na(tested$p.value.adjusted) & tested$p.value.adjusted > th), "regionID"]
     if (length(r) > 0) {
         message("Generating images for relevant regions (if annotation is requested, this can take quite long).")
         for (i in 1:length(r)) {
@@ -507,11 +499,9 @@ export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE,
                 scores = FALSE, path = path)
             cr = which(tested$regionID == r[i])
             tested$Figure[cr] = paste("<a href=\"./", path, "/", 
-                tested$regionID[cr], ".pdf\" target=\"_blank\">PDF</a>", 
-                sep = "")
+                tested$regionID[cr], ".pdf\" target=\"_blank\">PDF</a>", sep = "")
             tested$Statistics[cr] = paste("<a href=\"./", path, "/", 
-                tested$regionID[cr], ".tsv\" target=\"_blank\">STATS</a>", 
-                sep = "")
+                tested$regionID[cr], ".tsv\" target=\"_blank\">STATS</a>", sep = "")
             if (annotate.relevant == TRUE) {
                 tested$GeneSymbols_exact[cr] = annot$symbols_exact
                 tested$GeneSymbols_margin[cr] = annot$symbols_margin
@@ -537,26 +527,21 @@ export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE,
                 tested$GeneSymbols_margin[cr] = annot$symbols_margin
             }
             tested$Figure[cr] = paste("<a href=\"./", path, "/", 
-                tested$regionID[cr], ".pdf\" target=\"_blank\">PDF</a>", 
-                sep = "")
+                tested$regionID[cr], ".pdf\" target=\"_blank\">PDF</a>", sep = "")
             tested$Statistics[cr] = paste("<a href=\"./", path, "/", 
-                tested$regionID[cr], ".tsv\" target=\"_blank\">STATS</a>", 
-                sep = "")
+                tested$regionID[cr], ".tsv\" target=\"_blank\">STATS</a>", sep = "")
             write.table(file = paste("./", path, "/", tested$regionID[cr], 
-                ".tsv", sep = ""), t(tested[cr, ]), sep = "\t", col.names = FALSE, 
-                row.names = TRUE)
+                ".tsv", sep = ""), t(tested[cr, ]), sep = "\t", col.names = FALSE, row.names = TRUE)
         }
     }
     
     message("Exporting tables (HTML & CSV)")
     # for easy sorting and selection...
-    tested$links = paste(tested$Figure, tested$Statistics, tested$LinkEnsembl, 
-        tested$LinkUCSC, sep = "</br>")
+    tested$links = paste(tested$Figure, tested$Statistics, tested$LinkEnsembl, tested$LinkUCSC, sep = "</br>")
     tested$links = gsub("NA</br>", "", tested$links)  #remove empty entries
     
     # merge some columns to limit the number of columns in the output
-    tested$gene.symbols = paste(tested$GeneSymbols_exact, " (margin: ", 
-        tested$GeneSymbols_margin, ")", sep = "")
+    tested$gene.symbols = paste(tested$GeneSymbols_exact, " (margin: ", tested$GeneSymbols_margin, ")", sep = "")
     tested$gene.symbols[which(tested$gene.symbols == "Not queried (margin: Not queried)")] = "Not queried"
     
     # format data frame for output to html & tsv
@@ -564,13 +549,10 @@ export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE,
     tested_4html = tested[, c("chr", "start_bp", "end_bp", "links", 
         "length_bp", "n_probes", "regionID", "ClassAll", colnames(tested)[i], 
         "gene.symbols", "max.abs.median.delta", "p.value", "p.value.adjusted")]
-    colnames(tested_4html)[1:8] = c("Chr", "Start", "End", "Links", 
-        "Length", "n", "ID", "Class")
+    colnames(tested_4html)[1:8] = c("Chr", "Start", "End", "Links", "Length", "n", "ID", "Class")
     colnames(tested_4html) = gsub("beta.median.", "", colnames(tested_4html))
-    colnames(tested_4html)[(dim(tested_4html)[2] - 3):dim(tested_4html)[2]] = c("Gene.Symbol", 
-        "dM", "p", "p.adj")
-    tested_4html = tested_4html[order(tested_4html$p.adj, -tested_4html$dM), 
-        ]
+    colnames(tested_4html)[(dim(tested_4html)[2] - 3):dim(tested_4html)[2]] = c("Gene.Symbol", "dM", "p", "p.adj")
+    tested_4html = tested_4html[order(tested_4html$p.adj, -tested_4html$dM), ]
     options(scipen = 4)
     options(digits = 2)
     
@@ -595,40 +577,30 @@ export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE,
     write.table(tested_4html, "all.tsv", sep = "\t", row.names = FALSE)
     
     # export relevant regions (dM sufficiently large)
-    tested_4html_selected = tested_4html[which(tested_4html$p.adj <= 
-        1), ]
+    tested_4html_selected = tested_4html[which(tested_4html$p.adj <= 1), ]
     if (dim(tested_4html_selected)[1] > 0) {
-        tested_4html_selected = tested_4html_selected[order(-tested_4html_selected$dM), 
-            ]
+        tested_4html_selected = tested_4html_selected[order(-tested_4html_selected$dM), ]
         tested_4html_selected = cbind("", tested_4html_selected)
         colnames(tested_4html_selected)[1] = "Thumbnail"  #add thumbnail column
-        tested_4html_selected$Thumbnail = paste("<img src=\"./", 
-            path, "/", tested_4html_selected$ID, ".png\" height=\"63\" width=\"125\">", 
-            sep = "")
+        tested_4html_selected$Thumbnail = paste("<img src=\"./", path, "/", tested_4html_selected$ID, ".png\" height=\"63\" width=\"125\">", sep = "")
         HTML(tested_4html_selected, file = "relevant.html", row.names = FALSE, 
             align = "left", Border = NULL, innerBorder = 1, append = FALSE, 
             caption = caption, captionalign = "top", digits = 3, 
             big.mark = "", big.interval = 3, decimal.mark = ".")
-        write.table(tested_4html_selected, "relevant.tsv", sep = "\t", 
-            row.names = FALSE)
+        write.table(tested_4html_selected, "relevant.tsv", sep = "\t", row.names = FALSE)
     }
     # export significant DMRs
-    tested_4html_selected = tested_4html[which(tested_4html$p.adj <= 
-        th), ]
+    tested_4html_selected = tested_4html[which(tested_4html$p.adj <= th), ]
     if (dim(tested_4html_selected)[1] > 0) {
-        tested_4html_selected = tested_4html_selected[order(-tested_4html_selected$dM), 
-            ]
+        tested_4html_selected = tested_4html_selected[order(-tested_4html_selected$dM), ]
         tested_4html_selected = cbind("", tested_4html_selected)
         colnames(tested_4html_selected)[1] = "Thumbnail"  #add thumbnail column
-        tested_4html_selected$Thumbnail = paste("<img src=\"./", 
-            path, "/", tested_4html_selected$ID, ".png\" height=\"63\" width=\"125\">", 
-            sep = "")
+        tested_4html_selected$Thumbnail = paste("<img src=\"./", path, "/", tested_4html_selected$ID, ".png\" height=\"63\" width=\"125\">", sep = "")
         HTML(tested_4html_selected, file = "significant.html", row.names = FALSE, 
             align = "left", Border = NULL, innerBorder = 1, append = FALSE, 
             caption = caption, captionalign = "top", digits = 3, 
             big.mark = "", big.interval = 3, decimal.mark = ".")
-        write.table(tested_4html_selected, "significant.tsv", sep = "\t", 
-            row.names = FALSE)
+        write.table(tested_4html_selected, "significant.tsv", sep = "\t", row.names = FALSE)
     }
     
     setwd(old.wd)
@@ -636,24 +608,25 @@ export_data <- function(tested, regions, th = 0.05, annotate.relevant = FALSE,
 }
 
 plot_annotate_region <- function(tested, regions, margin = 10000, 
-    regionID, clr = NA, annotate = TRUE, scores = TRUE, path) {
+    regionID, clr = NA, annotate = TRUE, scores = TRUE, path)
+{
     # wrapper for plot_annotate_probes to plot / find annotation for
     # one region
     path = paste("./", path, "/", sep = "")
     cur_row = which(tested$regionID == regionID)
     title_x = paste("RegionID: ", regionID, ", chr", tested$chr[cur_row], 
-        ":", tested$start_bp[cur_row], "-", tested$end_bp[cur_row], 
-        sep = "")
-    probe_rows = which(regions$perprobe == regionID, arr.ind = TRUE)
-    probe_rows = probe_rows[, 1]
-    annot = plot_annotate_probes(regions = regions, title_x = title_x, 
+        ":", tested$start_bp[cur_row], "-", tested$end_bp[cur_row], sep = "")
+    probe_rows <- which(regions$perprobe == regionID, arr.ind = TRUE)
+    probe_rows <- probe_rows[, 1]
+    annot <- plot_annotate_probes(regions = regions, title_x = title_x, 
         probe_rows = probe_rows, margin = margin, ID = regionID, 
         clr = clr, annotate = annotate, scores = scores, path = path)
     return(annot)
 }
 
 plot_annotate_gene <- function(gs, regions, margin = 10000, ID, clr = NA, 
-    annotate = TRUE, path) {
+    annotate = TRUE, path)
+{
     # wrapper for plot_annotate_probes to plot / find annotation for
     # one gene (gene symbol)
     path = paste("./", path, "/", sep = "")
@@ -676,7 +649,8 @@ plot_annotate_gene <- function(gs, regions, margin = 10000, ID, clr = NA,
 }
 
 plot_annotate_custom_region <- function(chr, st, ed, regions, margin = 10000, 
-    ID = "CustomRegion", clr = NA, annotate = TRUE, path) {
+    ID = "CustomRegion", clr = NA, annotate = TRUE, path)
+{
     path = paste("./", path, "/", sep = "")
     # wrapper for plot_annotate_probes to plot / find annotation for
     # a custom genomic region
@@ -696,7 +670,8 @@ plot_annotate_custom_region <- function(chr, st, ed, regions, margin = 10000,
 }
 
 plot_annotate_probes <- function(regions, title_x, probe_rows, margin = 10000, 
-    ID = NA, clr = NA, annotate = TRUE, scores = NA, path) {
+    ID = NA, clr = NA, annotate = TRUE, scores = NA, path) # plot_annotate_probes
+{
     # Little quirk of Gviz that needs to be compensated for to match
     # the colors in all graphs...
     regions$valid.m = regions$valid.m[, order(colnames(regions$valid.m))]
@@ -720,8 +695,7 @@ plot_annotate_probes <- function(regions, title_x, probe_rows, margin = 10000,
         scores = calc_stats(probe_rows, probes, m, b, n, dMth, do.format = TRUE)
     }
     
-    if (!length(clr) == ns) 
-        {
+    if (!length(clr) == ns) {
             clr = rainbow(ns)
         }  #Did the user specify colors? If not, pick some from the rainbow pallet.
     
@@ -733,18 +707,12 @@ plot_annotate_probes <- function(regions, title_x, probe_rows, margin = 10000,
     plot(sort(rep(pos, ns)), t(regions$valid.beta[probe_rows[order(pos)], 
         ]), col = clr, lty = 2.5, cex = 2.5, pch = c(19), ylim = c(-0.1, 
         1.1), xaxt = "n", yaxt = "n", ann = FALSE, frame = FALSE)
-    lines(extendrange(regions$valid.probes$position[probe_rows]), 
-        c(0, 0), lty = "dashed")
-    lines(extendrange(regions$valid.probes$position[probe_rows]), 
-        c(0.25, 0.25), lty = "dashed")
-    lines(extendrange(regions$valid.probes$position[probe_rows]), 
-        c(0.5, 0.5), lty = "dashed")
-    lines(extendrange(regions$valid.probes$position[probe_rows]), 
-        c(0.75, 0.75), lty = "dashed")
-    lines(extendrange(regions$valid.probes$position[probe_rows]), 
-        c(1, 1), lty = "dashed")
+    lines(extendrange(regions$valid.probes$position[probe_rows]), c(0, 0), lty = "dashed")
+    lines(extendrange(regions$valid.probes$position[probe_rows]), c(0.25, 0.25), lty = "dashed")
+    lines(extendrange(regions$valid.probes$position[probe_rows]), c(0.5, 0.5), lty = "dashed")
+    lines(extendrange(regions$valid.probes$position[probe_rows]), c(0.75, 0.75), lty = "dashed")
+    lines(extendrange(regions$valid.probes$position[probe_rows]), c(1, 1), lty = "dashed")
     dev.off()
-    
     
     # pdf with detailed plots and annotation
     pdf(paste(path, ID, ".pdf", sep = ""), width = 10, height = 10)
@@ -788,10 +756,8 @@ plot_annotate_probes <- function(regions, title_x, probe_rows, margin = 10000,
             plot(sort(rep(pos, k)), t(m), col = cur_clr, lwd = 4, 
                 cex = 4, pch = c(21), main = paste(title_x, "-M_values", 
                   sep = ""), xlab = "position (bp)", ylab = "M", 
-                ylim = c(down, up), xlim = c(st - 0.17 * (ed - st), 
-                  ed))
-            legend("topleft", legend = s.names, col = cur_clr, pch = rep(21, 
-                ns), cex = 1)  #,inset=c(0,-0.2)
+                ylim = c(down, up), xlim = c(st - 0.17 * (ed - st), ed))
+            legend("topleft", legend = s.names, col = cur_clr, pch = rep(21, ns), cex = 1)  #,inset=c(0,-0.2)
             
             # plot beta values
             plot(sort(rep(pos, k)), t(b), col = cur_clr, lwd = 4, 
@@ -803,21 +769,15 @@ plot_annotate_probes <- function(regions, title_x, probe_rows, margin = 10000,
             axis(1, labels = TRUE)
             axis(4, seq(0, 1, 0.05), labels = FALSE)
             box(which = "plot", lty = "solid")
-            legend("topleft", legend = s.names, col = cur_clr, pch = rep(21, 
-                ns), cex = 1)  #,inset=c(0,-0.2)
+            legend("topleft", legend = s.names, col = cur_clr, pch = rep(21, ns), cex = 1)  #,inset=c(0,-0.2)
             
             # points(regions$valid.probes$position[probe_rows],regions$valid.beta[probe_rows,1],col=clr[2],lwd=6,cex=4,pch
             # = c(21))
-            lines(extendrange(regions$valid.probes$position[probe_rows]), 
-                c(0, 0), lty = "dashed")
-            lines(extendrange(regions$valid.probes$position[probe_rows]), 
-                c(0.25, 0.25), lty = "dashed")
-            lines(extendrange(regions$valid.probes$position[probe_rows]), 
-                c(0.5, 0.5), lty = "dashed")
-            lines(extendrange(regions$valid.probes$position[probe_rows]), 
-                c(0.75, 0.75), lty = "dashed")
-            lines(extendrange(regions$valid.probes$position[probe_rows]), 
-                c(1, 1), lty = "dashed")
+            lines(extendrange(regions$valid.probes$position[probe_rows]), c(0, 0), lty = "dashed")
+            lines(extendrange(regions$valid.probes$position[probe_rows]), c(0.25, 0.25), lty = "dashed")
+            lines(extendrange(regions$valid.probes$position[probe_rows]), c(0.5, 0.5), lty = "dashed")
+            lines(extendrange(regions$valid.probes$position[probe_rows]), c(0.75, 0.75), lty = "dashed")
+            lines(extendrange(regions$valid.probes$position[probe_rows]), c(1, 1), lty = "dashed")
         }
     }
     
